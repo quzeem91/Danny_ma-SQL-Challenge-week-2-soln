@@ -1,15 +1,16 @@
-PIZZA METRIC
-1 How many pizzas were ordered?
-  
+-- PIZZA METRIC
+
+-- 1 How many pizzas were ordered?
+
 SELECT COUNT(pizza_id) as "Total number of pizzas ordered" 
 FROM   pizza_runner.customer_orders;
   
-2 How many unique customer orders were made?
+-- 2 How many unique customer orders were made?
 
 SELECT COUNT(Distinct order_id) as " Number of unique orders" 
 FROM   pizza_runner.customer_orders;
-*/
-3 How many successful orders were delivered by each runner?
+
+-- 3 How many successful orders were delivered by each runner?
 
 SELECT runner_id,COUNT(order_id) "number of orders completed "
 FROM pizza_runner.runner_orders
@@ -17,12 +18,7 @@ WHERE pickup_time !='null'
 GROUP BY 1 
 ORDER BY 1;
  
-
--- SELECT order_id ,runner_id ,NULLIF(cancellation,'NaN') cancellation
--- FROM pizza_runner.runner_orders 
---WHERE lower(cancellation)  NOT LIKE '%cancellation%' ;
-
-4 How many of each type of pizza was delivered?
+-- 4 How many of each type of pizza was delivered?
 
 SELECT c.pizza_id,p.pizza_name,count(c.order_id) "number of times delivered "
 FROM pizza_runner.runner_orders r
@@ -34,7 +30,7 @@ GROUP BY 1,2
 ORDER BY 1;
 
 
-5 How many Vegetarian and Meatlovers were ordered by each customer?
+-- 5 How many Vegetarian and Meatlovers were ordered by each customer?
 
 WITH meatveg as (
 SELECT c.customer_id, CASE WHEN lower(p.pizza_name) ='meatlovers' THEN 1 
@@ -54,7 +50,7 @@ FROM meatveg
 GROUP BY 1
 ORDER BY 1;
 
-6 What was the maximum number of pizzas delivered in a single order?
+-- 6 What was the maximum number of pizzas delivered in a single order?
 
 WITH max_num_pizza as (
 SELECT c.order_id ,COUNT(p.pizza_id) pizza_count
@@ -70,16 +66,18 @@ LIMIT 1 )
 SELECT  pizza_count "Max number of pizza per order "
 FROM max_num_pizza ;
 
-7 For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
+-- 7 For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
 
-WITH pizza_change as (SELECT c.customer_id,r.order_id,p.pizza_name ,CASE WHEN c.extras ='' THEN '0'
-						  WHEN c.extras IS NULL THEN '0' 
-                          WHEN c.extras='null' THEN '0'
-                          ELSE c.extras END as extras,
-CASE WHEN exclusions ='' THEN '0'
-						  WHEN c.exclusions IS NULL THEN '0' 
-                          WHEN c.exclusions='null' THEN '0'
-                          ELSE c.exclusions END as exclusions
+WITH pizza_change as (
+	SELECT c.customer_id,r.order_id,p.pizza_name ,
+	       CASE WHEN c.extras ='' THEN '0'
+		    WHEN c.extras IS NULL THEN '0' 
+                    WHEN c.extras='null' THEN '0'
+                    ELSE c.extras END as extras,
+		CASE WHEN exclusions ='' THEN '0'
+		     WHEN c.exclusions IS NULL THEN '0' 
+                     WHEN c.exclusions='null' THEN '0'
+                     ELSE c.exclusions END as exclusions
 FROM pizza_runner.runner_orders r
 JOIN pizza_runner.customer_orders c
 ON r.order_id=c.order_id AND r.pickup_time != 'null'
@@ -87,10 +85,12 @@ JOIN pizza_runner.pizza_names p
 ON p.pizza_id= c.pizza_id
 ) ,
 
-altered_pizza as (SELECT customer_id,order_id ,pizza_name , CASE WHEN exclusions != '0' or extras != '0' THEN 1 
-			 ELSE 0	END AS altered_pizza,
-		CASE WHEN exclusions ='0' AND extras = '0'  THEN 1 
-        ELSE 0 END AS unaltered_pizza
+altered_pizza as (
+	SELECT customer_id,order_id ,pizza_name , 
+	       CASE WHEN exclusions != '0' or extras != '0' THEN 1 
+		    ELSE 0 END AS altered_pizza,
+	       CASE WHEN exclusions ='0' AND extras = '0'  THEN 1 
+        	    ELSE 0 END AS unaltered_pizza
 FROM pizza_change 
 ORDER BY 1 )
 
@@ -99,7 +99,7 @@ FROM altered_pizza
 GROUP BY 1
 ORDER BY 1;
 
-8 How many pizzas were delivered that had both exclusions and extras?
+-- 8 How many pizzas were delivered that had both exclusions and extras?
 
 WITH pizza_change as (SELECT c.customer_id,r.order_id,p.pizza_name ,CASE WHEN c.extras ='' THEN '0'
 						  WHEN c.extras IS NULL THEN '0' 
@@ -127,21 +127,22 @@ WHERE extra_and_exclusion != 0;
 
 
 
-9 What was the total volume of pizzas ordered for each hour of the day?
+-- 9 What was the total volume of pizzas ordered for each hour of the day?
+
 SELECT DATE_PART('hour',order_time) hour_of_the_day, COUNT(order_id) volume_of_pizzas_ordered_by_hour
 FROM pizza_runner.customer_orders
 GROUP BY 1 
 ORDER BY 2 DESC;
 
 
-10 What was the volume of orders for each day of the week?
+-- 10 What was the volume of orders for each day of the week?
+
 SELECT to_char(order_time,'Day') weekday ,COUNT(order_id) volume_of_pizzas_ordered
 FROM pizza_runner.customer_orders
 GROUP BY 1 
 ORDER BY 2 DESC;
 
-B. Runner and Customer Experience
-
+-- B. Runner and Customer Experience
 
 -- What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
 
@@ -297,42 +298,44 @@ WHERE extras != '0')
 SELECT *
 FROM extra_split;
 
-________
+-- Generate an order item for each record in the customers_orders table in the format of one of the following:
+-- Meat Lovers
+-- Meat Lovers - Exclude Beef
+-- Meat Lovers - Extra Bacon
+-- Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
 
-WITH cleaned_exclusion AS (SELECT c.customer_id,c.order_id,p.pizza_name ,
-CASE WHEN exclusions ='' THEN '0'
-						  WHEN c.exclusions IS NULL THEN '0' 
-                          WHEN c.exclusions='null' THEN '0'
-                          ELSE c.exclusions END as exclusions,
-                           CASE WHEN c.extras ='' THEN '0'
-						  WHEN c.extras IS NULL THEN '0' 
-                          WHEN c.extras='null' THEN '0'
-                          ELSE c.extras END as extras
+WITH cleaned_exclusion AS (
+	SELECT c.customer_id,c.order_id,p.pizza_name ,
+	       CASE WHEN exclusions ='' THEN '0'
+		    WHEN c.exclusions IS NULL THEN '0' 
+                    WHEN c.exclusions='null' THEN '0'
+                    ELSE c.exclusions END as exclusions,
+               CASE WHEN c.extras ='' THEN '0'
+		    WHEN c.extras IS NULL THEN '0' 
+                    WHEN c.extras='null' THEN '0'
+                    ELSE c.extras END as extras
 FROM pizza_runner.customer_orders c
 JOIN pizza_runner.pizza_names p
 ON p.pizza_id= c.pizza_id) , 
 
-exclusion_split as (SELECT *,CASE  WHEN POSITION(',' IN extras) =0 THEN extras             
-			 ELSE SUBSTRING(extras,1,position(',' IN extras)-1) END AS extra1,
-             case  when POSITION(',' IN extras)= 0 then '0'
-        else TRIM(SUBSTRING(extras, POSITION(',' IN extras) + 1, LENGTH(extras))) END AS extra2,
-                    CASE  WHEN POSITION(',' IN exclusions) =0 THEN exclusions             
-			 ELSE SUBSTRING(exclusions,1,position(',' IN exclusions)-1) END AS exclusion1,
-             case  when POSITION(',' IN exclusions)= 0 then '0'
-        else TRIM(SUBSTRING(exclusions, POSITION(',' IN exclusions) + 1, LENGTH(exclusions))) END AS exclusion2
-FROM cleaned_exclusion
+exclusion_split as (
+	SELECT *,
+	CASE  WHEN POSITION(',' IN extras) =0 THEN extras             
+	      ELSE SUBSTRING(extras,1,position(',' IN extras)-1) END AS extra1,
+        CASE  WHEN POSITION(',' IN extras)= 0 then '0'
+              ELSE TRIM(SUBSTRING(extras, POSITION(',' IN extras) + 1, LENGTH(extras))) END AS extra2,
+        CASE  WHEN POSITION(',' IN exclusions) =0 THEN exclusions             
+	      ELSE SUBSTRING(exclusions,1,position(',' IN exclusions)-1) END AS exclusion1,
+        CASE  WHEN POSITION(',' IN exclusions)= 0 then '0'
+              ELSE TRIM(SUBSTRING(exclusions, POSITION(',' IN exclusions) + 1, LENGTH(exclusions))) END AS exclusion2
+	FROM cleaned_exclusion
 ),
 
 
 no_changes as (
-  SELECT e.Customer_id,e.order_id,e.extras,e.exclusions , 
-         e.pizza_name  as order_item
-		--e.Customer_id,e.order_id,e.extras,e.exclusions ,extra2, 
-        -- CONCAT(e.pizza_name,' extra - ',pt.topping_name ) as order_item
-FROM exclusion_split e
--- LEFT JOIN pizza_runner.pizza_toppings pt 
--- ON (pt.topping_id)::text = e.extra2
-WHERE extras='0' and exclusions='0'
+  	SELECT e.Customer_id,e.order_id,e.extras,e.exclusions , e.pizza_name  as order_item
+	FROM exclusion_split e
+	WHERE extras='0' and exclusions='0'
 ), 
 extra1 as (
   SELECT 
