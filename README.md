@@ -19,4 +19,5 @@ He has prepared for us an entity relationship diagram of his database design but
 All datasets exist within the pizza_runner database schema - be sure to include this reference within your SQL scripts as you start exploring the data and answering the case study questions. <br>
 
 ## Entity Relation Diagram 
+
 ![ERD](ERD1.jpg)
