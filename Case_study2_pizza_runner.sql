@@ -249,11 +249,12 @@ ON mp.id=vp.id ;
 
 
 -- What was the most commonly added extra?
-WITH cleaned_extra AS (SELECT c.customer_id,r.order_id,p.pizza_name ,CASE WHEN c.extras ='' THEN '0'
-						  WHEN c.extras IS NULL THEN '0' 
-                          WHEN c.extras='null' THEN '0'
-                          ELSE c.extras END as extras,
-CASE WHEN exclusions ='' THEN '0'
+WITH cleaned_extra AS (SELECT c.customer_id,r.order_id,p.pizza_name ,
+                        CASE WHEN c.extras ='' THEN '0'
+			     WHEN c.extras IS NULL THEN '0' 
+                             WHEN c.extras='null' THEN '0'
+                             ELSE c.extras END as extras,
+                        CASE WHEN exclusions ='' THEN '0'
 						  WHEN c.exclusions IS NULL THEN '0' 
                           WHEN c.exclusions='null' THEN '0'
                           ELSE c.exclusions END as exclusions
@@ -270,10 +271,23 @@ extra_split as (SELECT *,CASE  WHEN POSITION(',' IN extras) =0 THEN extras
 FROM cleaned_extra
 WHERE extras != '0')
 
-SELECT extra1,COUNT(extra1),extra2,COUNT(extra2)
+SELECT pt.topping_name most_added_extra ,extra extra_id , COUNT(extra) number_of_times_added 
+FROM (SELECT extra1 extra
 FROM extra_split
-GROUP BY 1,3 ;
 
+UNION ALL
+SELECT extra2 extra
+FROM extra_split) sub
+JOIN pizza_runner.pizza_toppings pt
+ON sub.extra=(pt.topping_id)::text
+
+Where extra!='-'
+GROUP BY 1,2
+ORDER BY 3 DESC 
+LIMIT 1;
+
+
+-- What was the most common exclusion?
 WITH cleaned_extra AS (SELECT c.customer_id,r.order_id,p.pizza_name ,CASE WHEN c.extras ='' THEN '0'
 						  WHEN c.extras IS NULL THEN '0' 
                           WHEN c.extras='null' THEN '0'
@@ -288,15 +302,26 @@ ON r.order_id=c.order_id AND r.pickup_time != 'null'
 JOIN pizza_runner.pizza_names p
 ON p.pizza_id= c.pizza_id) , 
 
-extra_split as (SELECT *,CASE  WHEN POSITION(',' IN extras) =0 THEN extras             
-			 ELSE SUBSTRING(extras,1,position(',' IN extras)-1) END AS extra1,
-             case  when POSITION(',' IN extras)= 0 then '-'
-        else SUBSTRING(extras, POSITION(',' IN extras) + 1, LENGTH(extras)) END AS extra2
+exclusion_split as (SELECT *,CASE  WHEN POSITION(',' IN exclusions) =0 THEN exclusions             
+			 ELSE SUBSTRING(exclusions,1,position(',' IN exclusions)-1) END AS exclusion1,
+             case  when POSITION(',' IN exclusions)= 0 then '-'
+        else SUBSTRING(exclusions, POSITION(',' IN exclusions) + 1, LENGTH(exclusions)) END AS exclusion2
 FROM cleaned_extra
-WHERE extras != '0')
+WHERE exclusions != '0')
 
-SELECT *
-FROM extra_split;
+SELECT pt.topping_name most_common_exclusion ,exclusion exclusion_id , COUNT(exclusion) number_of_times_excluded
+FROM (SELECT exclusion1 exclusion
+FROM exclusion_split
+
+UNION ALL
+SELECT exclusion2 exclusion
+FROM exclusion_split) sub
+JOIN pizza_runner.pizza_toppings pt
+ON sub.exclusion=(pt.topping_id)::text
+Where exclusion!='-'
+GROUP BY 1,2
+ORDER BY 3 DESC 
+LIMIT 1;
 
 -- Generate an order item for each record in the customers_orders table in the format of one of the following:
 -- Meat Lovers
