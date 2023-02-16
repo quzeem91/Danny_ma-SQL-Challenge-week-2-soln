@@ -233,9 +233,27 @@ This case study has LOTS of questions - they are broken up by area of focus incl
 
 ### B. Runner and Customer Experience
 
-How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
+**1. How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)**
+ ```
+ SELECT runner_id, 
+	       CASE WHEN registration_date BETWEEN '2021-01-01' AND '2021-01-08' THEN '1'
+             WHEN registration_date BETWEEN '2021-01-08' AND '2021-01-15' THEN '2'
+             WHEN registration_date BETWEEN '2021-01-15' AND '2021-01-22' THEN '3'
+ 			    END AS "signup week", registration_date
+FROM pizza_runner.runners 
 
-**What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?**
+ ```
+ 
+| runner_id | signup week | registration_date        |
+| --------- | ----------- | ------------------------ |
+| 1         | 1           | 2021-01-01T00:00:00.000Z |
+| 2         | 1           | 2021-01-03T00:00:00.000Z |
+| 3         | 1           | 2021-01-08T00:00:00.000Z |
+| 4         | 2           | 2021-01-15T00:00:00.000Z |
+
+---
+
+**2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?**
 
     WITH mins_taken_to_pickup as (
     SELECT Distinct r.runner_id ,r.order_id,Date_part('minutes',(TO_TIMESTAMP(r.pickup_time, 'YYYY/MM/DD/HH24:MI:ss')- c.order_time)) time_diff
@@ -257,7 +275,7 @@ How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
 | 3         | 10                              |
 
 ---
-**Is there any relationship between the number of pizzas and how long the order takes to prepare?**
+**3. Is there any relationship between the number of pizzas and how long the order takes to prepare?**
 
     WITH pizza_per_order as (SELECT c.order_id ,COUNT(p.pizza_id) pizza_count
     FROM pizza_runner.runner_orders r
@@ -292,7 +310,9 @@ How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
 | 10       | 2           | 15              |
 
 ---
-**What was the average distance travelled for each customer?**
+**Answer:** Yes there is. Orders with more than 1 pizza have a longer prep time compared to order with just 1 pizza. <br>
+
+**4. What was the average distance travelled for each customer?**
 
     WITH distance_travelled  AS (SELECT   Distinct c.customer_id ,r.order_id,
                                  CASE  WHEN POSITION('k' IN distance) =0 THEN COALESCE(distance,'0') :: float
@@ -316,7 +336,7 @@ How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
 | 105         | 25                            |
 
 ---
-**What was the difference between the longest and shortest delivery times for all orders?**
+**5. What was the difference between the longest and shortest delivery times for all orders?**
 
     WITH delivery_duration  AS (SELECT  Distinct c.customer_id ,r.order_id,LEFT(duration,2):: int duration_in_mins
     FROM pizza_runner.runner_orders r 
@@ -332,7 +352,7 @@ How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
 | 30                                                            |
 
 ---
-**What was the average speed for each runner for each delivery and do you notice any trend for these values?**
+**6. What was the average speed for each runner for each delivery and do you notice any trend for these values?**
 
     WITH distance_time as (SELECT   Distinct  r.runner_id ,r.order_id,LEFT(duration,2):: float duration,LEFT(distance,2):: float distance 
     FROM pizza_runner.runner_orders r 
@@ -356,7 +376,7 @@ How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
 | 3         | 5        | 15       | 10       | 40.0            |
 
 ---
-**What is the successful delivery percentage for each runner?**
+**7. What is the successful delivery percentage for each runner?**
 
     WITH successful_delivery as (
     SELECT order_id,runner_id ,CASE WHEN pickup_time=Null or pickup_time='null' THEN 0
