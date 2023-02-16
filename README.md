@@ -131,14 +131,16 @@ This case study has LOTS of questions - they are broken up by area of focus incl
 ---
 **7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?**
 
-    WITH pizza_change as (SELECT c.customer_id,r.order_id,p.pizza_name ,CASE WHEN c.extras ='' THEN '0'
-    						  WHEN c.extras IS NULL THEN '0' 
-                              WHEN c.extras='null' THEN '0'
-                              ELSE c.extras END as extras,
-    CASE WHEN exclusions ='' THEN '0'
-    						  WHEN c.exclusions IS NULL THEN '0' 
-                              WHEN c.exclusions='null' THEN '0'
-                              ELSE c.exclusions END as exclusions
+    WITH pizza_change as (
+    SELECT c.customer_id,r.order_id,p.pizza_name ,
+    	   CASE WHEN c.extras ='' THEN '0'
+                WHEN c.extras IS NULL THEN '0' 
+                WHEN c.extras='null' THEN '0'
+                ELSE c.extras END as extras,
+    	   CASE WHEN exclusions ='' THEN '0'
+    		WHEN c.exclusions IS NULL THEN '0' 
+                WHEN c.exclusions='null' THEN '0'
+                ELSE c.exclusions END as exclusions
     FROM pizza_runner.runner_orders r
     JOIN pizza_runner.customer_orders c
     ON r.order_id=c.order_id AND r.pickup_time != 'null'
@@ -146,10 +148,12 @@ This case study has LOTS of questions - they are broken up by area of focus incl
     ON p.pizza_id= c.pizza_id
     ) ,
     
-    altered_pizza as (SELECT customer_id,order_id ,pizza_name , CASE WHEN exclusions != '0' or extras != '0' THEN 1 
-    			 ELSE 0	END AS altered_pizza,
-    		CASE WHEN exclusions ='0' AND extras = '0'  THEN 1 
-            ELSE 0 END AS unaltered_pizza
+    altered_pizza as (
+    SELECT customer_id,order_id ,pizza_name , 
+           CASE WHEN exclusions != '0' or extras != '0' THEN 1 
+    		ELSE 0	END AS altered_pizza,
+    	   CASE WHEN exclusions ='0' AND extras = '0'  THEN 1 
+                ELSE 0 END AS unaltered_pizza
     FROM pizza_change 
     ORDER BY 1 )
     
@@ -169,14 +173,16 @@ This case study has LOTS of questions - they are broken up by area of focus incl
 ---
 **8. How many pizzas were delivered that had both exclusions and extras?**
 
-    WITH pizza_change as (SELECT c.customer_id,r.order_id,p.pizza_name ,CASE WHEN c.extras ='' THEN '0'
-    						  WHEN c.extras IS NULL THEN '0' 
-                              WHEN c.extras='null' THEN '0'
-                              ELSE c.extras END as extras,
-    CASE WHEN exclusions ='' THEN '0'
-    						  WHEN c.exclusions IS NULL THEN '0' 
-                              WHEN c.exclusions='null' THEN '0'
-                              ELSE c.exclusions END as exclusions
+    WITH pizza_change as (
+    SELECT c.customer_id,r.order_id,p.pizza_name ,
+           CASE WHEN c.extras ='' THEN '0'
+    	        WHEN c.extras IS NULL THEN '0' 
+                WHEN c.extras='null' THEN '0'
+                ELSE c.extras END as extras,
+           CASE WHEN exclusions ='' THEN '0'
+    		WHEN c.exclusions IS NULL THEN '0' 
+                WHEN c.exclusions='null' THEN '0'
+                ELSE c.exclusions END as exclusions
     FROM pizza_runner.runner_orders r
     JOIN pizza_runner.customer_orders c
     ON r.order_id=c.order_id AND r.pickup_time != 'null'
@@ -184,8 +190,10 @@ This case study has LOTS of questions - they are broken up by area of focus incl
     ON p.pizza_id= c.pizza_id
     ) ,
     
-    extra_and_exclusion as (SELECT customer_id,order_id ,pizza_name , CASE WHEN exclusions != '0' AND extras != '0' THEN 1 
-    			 ELSE 0	END AS extra_and_exclusion
+    extra_and_exclusion as (
+    SELECT customer_id, order_id, pizza_name, 
+           CASE WHEN exclusions != '0' AND extras != '0' THEN 1 
+    	        ELSE 0	END AS extra_and_exclusion
     FROM pizza_change 
     ORDER BY 1 )
     
@@ -379,11 +387,12 @@ FROM pizza_runner.runners
 **7. What is the successful delivery percentage for each runner?**
 
     WITH successful_delivery as (
-    SELECT order_id,runner_id ,CASE WHEN pickup_time=Null or pickup_time='null' THEN 0
-    								ELSE 1 END AS successful_delivery
+    SELECT order_id,runner_id ,
+           CASE WHEN pickup_time=Null or pickup_time='null' THEN 0
+    	   ELSE 1 END AS successful_delivery
     FROM pizza_runner.runner_orders )
     
-    SELECT runner_id ,SUM(successful_delivery)*100/COUNT(successful_delivery) successful_delivery_percentage
+    SELECT runner_id, SUM(successful_delivery)*100/COUNT(successful_delivery) successful_delivery_percentage
     FROM successful_delivery
     GROUP BY 1
     ORDER BY 1;
