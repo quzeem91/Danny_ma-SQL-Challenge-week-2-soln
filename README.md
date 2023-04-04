@@ -404,3 +404,304 @@ FROM pizza_runner.runners
 | 3         | 50                             |
 
 ---
+
+
+
+### C. Ingredient Optimisation
+---
+
+**1. What are the standard ingredients for each pizza?**
+
+    WITH meat_pizza as (SELECT topping_name ,row_number() over() as id 
+    FROM pizza_runner.pizza_toppings
+    WHERE topping_id  IN (1, 2, 3, 4, 5, 6, 8, 10)) ,
+    
+    veg_pizza as (
+    SELECT topping_name,row_number() over() as id
+    FROM pizza_runner.pizza_toppings
+    WHERE topping_id IN  (4, 6, 7, 9, 11, 12))
+    
+    SELECT mp.topping_name standard_meatlovers_ingredient,Coalesce(vp.topping_name,'') standard_vegetarian_ingredient
+    FROM meat_pizza mp 
+    FULL OUTER JOIN veg_pizza vp 
+    ON mp.id=vp.id ;
+
+| standard_meatlovers_ingredient | standard_vegetarian_ingredient |
+| ------------------------------ | ------------------------------ |
+| Bacon                          | Cheese                         |
+| BBQ Sauce                      | Mushrooms                      |
+| Beef                           | Onions                         |
+| Cheese                         | Peppers                        |
+| Chicken                        | Tomatoes                       |
+| Mushrooms                      | Tomato Sauce                   |
+| Pepperoni                      |                                |
+| Salami                         |                                |
+
+---
+**3. What was the most commonly added extra?**
+
+    WITH cleaned_extra AS (
+        SELECT c.customer_id,r.order_id,p.pizza_name ,
+               CASE 
+                    WHEN c.extras = '' THEN '0'
+                    WHEN c.extras IS NULL THEN '0' 
+                    WHEN c.extras = 'null' THEN '0'
+                    ELSE c.extras 
+               END AS extras    FROM pizza_runner.runner_orders r
+        JOIN pizza_runner.customer_orders c
+            ON r.order_id=c.order_id 
+        JOIN pizza_runner.pizza_names p
+            ON p.pizza_id= c.pizza_id
+    ), 
+    extra_split AS (
+        SELECT SPLIT_PART(extras, ',', 1) AS extra1, SPLIT_PART(extras, ',', 2) AS extra2
+        FROM cleaned_extra
+        WHERE extras != '0'
+    )
+    SELECT pt.topping_name AS most_added_extra,
+           extra AS extra_id,
+           COUNT(extra) AS number_of_times_added 
+    FROM (
+        SELECT extra1 AS extra FROM extra_split WHERE extra1 != ''
+        UNION ALL
+        SELECT extra2 AS extra FROM extra_split WHERE extra2 != ''
+    ) sub
+    JOIN pizza_runner.pizza_toppings pt ON sub.extra::int = pt.topping_id
+    GROUP BY 1,2
+    ORDER BY 3 DESC 
+    LIMIT 1;
+
+| most_added_extra | extra_id | number_of_times_added |
+| ---------------- | -------- | --------------------- |
+| Bacon            | 1        | 4                     |
+
+---
+**3. What was the most common exclusion?**
+
+    WITH cleaned_exclusions AS (
+        SELECT c.customer_id, r.order_id, p.pizza_name,
+               CASE 
+                    WHEN c.exclusions = '' THEN '0'
+                    WHEN c.exclusions IS NULL THEN '0' 
+                    WHEN c.exclusions = 'null' THEN '0'
+                    ELSE c.exclusions 
+               END AS exclusions
+        FROM pizza_runner.runner_orders r
+        JOIN pizza_runner.customer_orders c 
+        ON r.order_id = c.order_id 
+        JOIN pizza_runner.pizza_names p 
+        ON p.pizza_id = c.pizza_id
+    ), 
+    exclusion_split AS (
+        SELECT SPLIT_PART(exclusions, ',', 1) AS exclusion1, SPLIT_PART(exclusions, ',', 2) AS exclusion2
+        FROM cleaned_exclusions
+        WHERE exclusions != '0'
+    )
+    SELECT pt.topping_name AS most_common_exclusion, 
+           exclusion AS exclusion_id, 
+           COUNT(exclusion) AS number_of_times_excluded
+    FROM (
+        SELECT exclusion1 AS exclusion FROM exclusion_split WHERE exclusion1 != ''
+        UNION ALL
+        SELECT exclusion2 AS exclusion FROM exclusion_split WHERE exclusion2 != ''
+    ) sub
+    JOIN pizza_runner.pizza_toppings pt 
+    ON sub.exclusion::int = pt.topping_id
+    GROUP BY 1, 2
+    ORDER BY 3 DESC
+    LIMIT 1;
+
+| most_common_exclusion | exclusion_id | number_of_times_excluded |
+| --------------------- | ------------ | ------------------------ |
+| Cheese                | 4            | 4                        |
+
+---
+
+### D. Pricing and Ratings
+---
+
+**1. If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?**
+
+
+    WITH cost_per_order_with_no_charges_for_changes as ( 
+    SELECT c.customer_id, r.order_id,c.pizza_id, CASE WHEN c.pizza_id = 1 THEN 12 ELSE 10 END AS "price"
+    FROM pizza_runner.customer_orders c
+    JOIN pizza_runner.runner_orders r
+    ON c.order_id=r.order_id
+    WHERE r.pickup_time !='null'
+    ORDER BY 1,2
+    )
+    SELECT CONCAT('$',SUM(price)) "total_money_made"
+    FROM cost_per_order_with_no_charges_for_changes;
+
+| total_money_made |
+| ---------------- |
+| $138             |
+
+---
+**1. If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?**
+
+
+    WITH cost_per_order AS (
+      SELECT
+        c.customer_id,
+        r.order_id,
+        c.pizza_id,
+        CASE 
+          WHEN c.extras = '' THEN '0'
+          WHEN c.extras IS NULL THEN '0' 
+          WHEN c.extras = 'null' THEN '0'
+          ELSE c.extras 
+        END AS extras,
+        CASE WHEN c.pizza_id = 1 THEN 12 ELSE 10 END AS price
+      FROM pizza_runner.customer_orders c
+      JOIN pizza_runner.runner_orders r
+        ON c.order_id = r.order_id
+      WHERE r.pickup_time!='null'
+      ORDER BY 1, 2
+    ),
+    cost_of_order_with_charges_for_extra AS (
+      SELECT
+        *,
+        CASE  
+          WHEN extras != '0' AND LENGTH(TRIM(extras)) = 1 THEN price + 1
+          WHEN extras != '0' AND LENGTH(TRIM(extras)) > 1 THEN price + 2
+          ELSE price
+        END AS new_price
+      FROM cost_per_order
+    )
+    SELECT CONCAT('$',SUM(new_price)) AS total_amt_made_including_charges_for_extras
+    FROM cost_of_order_with_charges_for_extra;
+
+| total_amt_made_including_charges_for_extras |
+| ------------------------------------------- |
+| $142                                        |
+
+---
+**3. The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.**
+
+
+    CREATE TABLE IF NOT EXISTS runner_ratings (
+      order_id INTEGER,
+      runner_id INTEGER,
+      rating INTEGER
+    );
+
+
+
+    INSERT INTO runner_ratings (order_id, runner_id, rating)
+    SELECT order_id, runner_id, FLOOR(1 + RANDOM() * 5) AS rating
+    FROM pizza_runner.runner_orders
+    WHERE pickup_time!= Null or pickup_time != 'null';
+
+
+    SELECT * 
+    FROM runner_ratings;
+
+| order_id | runner_id | rating |
+| -------- | --------- | ------ |
+| 1        | 1         | 1      |
+| 2        | 1         | 3      |
+| 3        | 1         | 4      |
+| 4        | 2         | 5      |
+| 5        | 3         | 4      |
+| 7        | 2         | 5      |
+| 8        | 2         | 4      |
+| 10       | 1         | 1      |
+
+---
+**4. Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?
+customer_id
+order_id
+runner_id
+rating
+order_time
+pickup_time
+Time between order and pickup
+Delivery duration
+Average speed
+Total number of pizzas**
+
+    WITH pizza_per_order_table AS (
+    SELECT c.customer_id, c.order_id ,COUNT(p.pizza_id) pizza_count
+    FROM pizza_runner.runner_orders r
+    JOIN pizza_runner.customer_orders c
+    ON r.order_id=c.order_id AND r.pickup_time != 'null'
+    JOIN pizza_runner.pizza_names p
+    ON p.pizza_id= c.pizza_id
+    GROUP BY 1,2
+    ORDER BY 1,2),
+    
+    average_speed_table AS (
+    WITH distance_time as (SELECT   Distinct  r.runner_id ,r.order_id,LEFT(duration,2):: float duration,LEFT(distance,2):: float distance
+    FROM pizza_runner.runner_orders r 
+    JOIN pizza_runner.customer_orders c
+    ON c.order_id=r.order_id
+    WHERE r.pickup_time!= Null or r.pickup_time != 'null'
+    )
+    SELECT *, ROUND((distance*60/(duration))::numeric,1) "avg_speed"
+    FROM distance_time
+    ORDER BY 1,2
+    )
+    SELECT 
+    	DISTINCT pt.customer_id, pt.order_id, sp.runner_id, rr.rating, c.order_time, r.pickup_time, 
+    	ROUND(EXTRACT(EPOCH FROM age(to_timestamp(r.pickup_time, 'YYYY-MM-DD HH24:MI:SS'), c.order_time))/60) AS time_diff_minutes,
+        sp.duration, sp.avg_speed, pt.pizza_count
+    FROM pizza_per_order_table pt
+    JOIN average_speed_table sp
+    ON sp.order_id=pt.order_id
+    JOIN  pizza_runner.runner_orders r
+    ON sp.order_id=r.order_id
+    JOIN pizza_runner.customer_orders c
+    ON r.order_id=c.order_id 
+    JOIN runner_ratings rr
+    ON rr.runner_id=r.runner_id AND rr.order_id=r.order_id
+    ORDER BY 2;
+
+| customer_id | order_id | runner_id | rating | order_time               | pickup_time         | time_diff_minutes | duration | avg_speed | pizza_count |
+| ----------- | -------- | --------- | ------ | ------------------------ | ------------------- | ----------------- | -------- | --------- | ----------- |
+| 101         | 1        | 1         | 1      | 2020-01-01T18:05:02.000Z | 2020-01-01 18:15:34 | 11                | 32       | 37.5      | 1           |
+| 101         | 2        | 1         | 3      | 2020-01-01T19:00:52.000Z | 2020-01-01 19:10:54 | 10                | 27       | 44.4      | 1           |
+| 102         | 3        | 1         | 4      | 2020-01-02T23:51:23.000Z | 2020-01-03 00:12:37 | 21                | 20       | 39.0      | 2           |
+| 103         | 4        | 2         | 5      | 2020-01-04T13:23:46.000Z | 2020-01-04 13:53:03 | 29                | 40       | 34.5      | 3           |
+| 104         | 5        | 3         | 4      | 2020-01-08T21:00:29.000Z | 2020-01-08 21:10:57 | 10                | 15       | 40.0      | 1           |
+| 105         | 7        | 2         | 5      | 2020-01-08T21:20:29.000Z | 2020-01-08 21:30:45 | 10                | 25       | 60.0      | 1           |
+| 102         | 8        | 2         | 4      | 2020-01-09T23:54:33.000Z | 2020-01-10 00:15:02 | 20                | 15       | 92.0      | 1           |
+| 104         | 10       | 1         | 1      | 2020-01-11T18:34:49.000Z | 2020-01-11 18:50:20 | 16                | 10       | 60.0      | 2           |
+
+---
+**5. IIf a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?**
+
+
+    WITH cost_per_order_with_no_charges_for_changes AS (
+    SELECT 
+        c.order_id,
+        CASE WHEN c.pizza_id = 1 THEN 12 ELSE 10 END AS price
+    FROM pizza_runner.customer_orders c
+    JOIN pizza_runner.runner_orders r
+    ON c.order_id = r.order_id
+    WHERE r.pickup_time != 'null'
+    ORDER BY 1
+    ),
+    distance_per_order AS (
+    SELECT r.order_id,
+    ROUND(SUM(CASE
+    WHEN POSITION('k' IN distance) = 0
+    THEN COALESCE(distance, '0')::float
+    ELSE SUBSTRING(distance, 1, POSITION('k' IN distance) - 1)::float
+    END)) AS distance_km
+    FROM pizza_runner.runner_orders r
+    WHERE r.pickup_time != 'null'
+    GROUP BY 1
+    )
+    SELECT CONCAT('$',SUM(c.price) - (SUM(d.distance_km) * 0.3)) AS money_left_over
+    FROM cost_per_order_with_no_charges_for_changes c
+    JOIN distance_per_order d
+    ON c.order_id = d.order_id;
+
+| money_left_over |
+| --------------- |
+| $74.1           |
+
+---
+
