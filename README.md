@@ -705,3 +705,46 @@ Total number of pizzas**
 
 ---
 
+### C. Bonus Questions
+
+**1. If Danny wants to expand his range of pizzas - how would this impact the existing data design?**
+
+**Answer:**
+
+
+If Danny decides to expand his range of pizzas, This will impact the existing data design by requiring updates to the "pizza_names" and "pizza_recipes" tables.
+In order to add a new pizza to the menu, a new row would need to be inserted into the "pizza_names" table with a unique pizza_id and the name of the new pizza. 
+A new row would also need to be inserted into the "pizza_recipes" table with the same pizza_id and a comma-separated list of topping IDs for the new pizza.
+
+**2. Write an INSERT statement to demonstrate what would happen if a new Supreme pizza with all the toppings was added to the Pizza Runner menu?**
+
+	INSERT INTO pizza_runner.pizza_names (pizza_id, pizza_name)
+	VALUES (3, 'Supreme');
+
+	
+
+	SELECT * 
+	FROM pizza_runner.pizza_names;
+| pizza_id | pizza_name |
+| -------- | ---------- |
+| 1        | Meatlovers |
+| 2        | Vegetarian |
+| 3        | Supreme    |
+
+	INSERT INTO pizza_runner.pizza_recipes (pizza_id, toppings)
+	VALUES (3, '1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12 ');
+
+	
+	SELECT * 
+	FROM pizza_runner.pizza_recipes;
+
+| pizza_id | toppings                               |
+| -------- | -------------------------------------- |
+| 1        | 1, 2, 3, 4, 5, 6, 8, 10                |
+| 2        | 4, 6, 7, 9, 11, 12                     |
+| 3        | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12  |
+
+
+
+---
+
